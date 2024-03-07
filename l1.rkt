@@ -2,6 +2,7 @@
 (require racket/list)
 
 (define-type Loc String)
+(define-type Store (U Loc Integer))
 
 (: operator : Char -> (Operator Char))
 (define (operator c )
@@ -40,4 +41,9 @@
     Skip)
   )
 
-
+(: lookup : ((Listof Number)  Number -> Number))
+(define (lookup ls l)
+  (match ls
+    ['()  0]
+    [(cons (cons (== l) n) ls) n]
+    [(cons _ ls) (lookup ls l)]))
