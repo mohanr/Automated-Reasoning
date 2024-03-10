@@ -1,4 +1,6 @@
 #lang typed/racket
+
+
 (require racket/list)
 
 (define-type Loc String)
@@ -41,9 +43,22 @@
     Skip)
   )
 
-(: lookup : ((Listof Number)  Number -> Number))
+(struct None ())
+(struct (i) Some ([v : i]))
+(define-type (Opt a) (U None (Some a)))
+
+(: lookup  ((Listof Number)  Number -> Number))
 (define (lookup ls l)
   (match ls
     ['()  0]
     [(cons (cons (== l) n) ls) n]
     [(cons _ ls) (lookup ls l)]))
+
+
+(: updates ((Listof Any) Number ->
+                                 (Opt (Listof Any))))
+(define (updates ls l)
+  (match ls
+    ['()   (None)]
+    [(cons (cons (== l) n) ls) (Some (append ls (list (list l n))))]
+    [(cons _ ls) (updates ls l)]))
