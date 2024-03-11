@@ -2,6 +2,7 @@
 
 
 (require racket/list)
+(provide updates Some None)
 
 (define-type Loc String)
 (define-type Store (U Loc Integer))
@@ -43,8 +44,10 @@
     Skip)
   )
 
-(struct None ())
-(struct (i) Some ([v : i]))
+(struct None ()
+    #:transparent)
+(struct (i) Some ([v : i])
+    #:transparent)
 (define-type (Opt a) (U None (Some a)))
 
 (: lookup  ((Listof Number)  Number -> Number))
