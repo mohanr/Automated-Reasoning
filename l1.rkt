@@ -1,49 +1,71 @@
-#lang typed/racket
+#lang typed/racket/base
 
+(provide updates None Some)
 
-(require racket/list)
-(provide updates Some None)
+(require (for-syntax racket/base
+                     racket/sequence
+                     racket/syntax
+                     syntax/parse
+                     syntax/stx)
+         racket/match)
+(begin-for-syntax
+  (define-syntax-class type
+    (pattern name:id
+             #:attr [param 1] '()
+             #:attr [field-id 1] '())
+    (pattern (name:id param ...+)
+             #:attr [field-id 1] (generate-temporaries #'(param ...)))))
+
+(define-syntax define-datatype
+  (syntax-parser
+    [(_ type-name:type data-constructor:type ...)
+
+     (define/with-syntax [data-type ...]
+       (for/list ([name (in-syntax #'(data-constructor.name ...))])
+         (if (stx-null? #'(type-name.param ...))
+             name
+             #`(#,name type-name.param ...))))
+
+     #'(begin
+         (struct (type-name.param ...) data-constructor.name
+           ([data-constructor.field-id : data-constructor.param] ...)) ...
+         (define-type type-name (U data-type ...)))]))
 
 (define-type Loc String)
-(define-type Store (U Loc Integer))
-
-(: operator : Char -> (Operator Char))
-(define (operator c )
-  (match c
-     ['+' Plus]
-     ['>=' GTEQ]))
-
 (struct Plus())
 (struct GTEQ())
-(struct Expr ())
-(define-type Value (U Integer Char))
-(define-type If (U Expr Expr Expr))
-(define-type (Op c) (U Expr (Operator c) Expr))
-(define-type Assign (U Loc Expr))
-(struct Deref())
-(struct Seq())
-(struct While())
-(struct Skip())
 (define-type (Operator c) (U Plus GTEQ))
 
-(define-type (Expression c)
- (U Value
+(: operator : (U Plus GTEQ)->  Char)
+(define (operator c )
+  (match c
+    ['Plus #\+]
+    ['GTEQ #\=]))
 
-    (Op c)
+(define-datatype Expr
+  (Value (U Boolean Number))
+  (Op  Expr (U Plus GTEQ) Expr)
+  (If (U Expr Expr Expr))
+  (Assign (U Loc Expr))
+  ( Deref Loc )
+  ( Seq Expr Expr)
+  ( While Expr Expr)
+    Skip
+)
 
-    If
 
-    Assign
+(: printexpr (Expr -> Void ))
+(define (printexpr expr)
+  (match expr
+    [(? number? n) (printf " ~a~n" n )]
+    [(? boolean? b) (format " ~a~n" b )]
+    ;; [( Op opr  )  (printf "~a" opr)]
 
-    (U Deref Loc )
-
-    (U Seq Expr Expr)
-
-    (U While Expr Expr)
-
-    Skip)
+    [( Op e1 operate e2  )
+            (printf "( ~a ~a ~a~n)"  (printexpr e1)  (operator operate)
+            (printexpr e2 ))]
+ )
   )
-
 (struct None ()
     #:transparent)
 (struct (i) Some ([v : i])
