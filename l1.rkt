@@ -1,6 +1,6 @@
 #lang typed/racket/base
 
-(provide updates None Some)
+(provide Boolean printexpr updates None Some Seq Deref Assign)
 
 (require (for-syntax racket/base
                      racket/sequence
@@ -43,10 +43,9 @@
     ['GTEQ #\=]))
 
 (define-datatype Expr
-  (Value (U Boolean Number))
-  (Op  Expr (U Plus GTEQ) Expr)
-  (If (U Expr Expr Expr))
-  (Assign (U Loc Expr))
+  ( Op  Expr (U Plus GTEQ) Expr)
+  ( If  Expr Expr Expr)
+  ( Assign  Loc Expr)
   ( Deref Loc )
   ( Seq Expr Expr)
   ( While Expr Expr)
@@ -57,15 +56,20 @@
 (: printexpr (Expr -> Void ))
 (define (printexpr expr)
   (match expr
-    [(? number? n) (printf " ~a~n" n )]
-    [(? boolean? b) (format " ~a~n" b )]
-    ;; [( Op opr  )  (printf "~a" opr)]
-
+    [(Deref l)  (printf "( ~a ~a ~n)" "!"  l)]
     [( Op e1 operate e2  )
             (printf "( ~a ~a ~a~n)"  (printexpr e1)  (operator operate)
             (printexpr e2 ))]
- )
-  )
+    [( If e1 e2 e3  )
+            (printf "( ~a ~a ~a~n)"  (printexpr e1)  (printexpr e2 )(printexpr e2 ))]
+    [ (Assign l e ) =  (printf "~a := ~a" l (printexpr e ))]
+    [ (Skip) ( printf "skip")]
+    [ (Seq e1 e2 )   (printf "~a ;  ~a" (printexpr e1 )
+                                      (printexpr e2))]
+    [ (While  e1 e2 ) (printf  "while ~a do ~a " (printexpr e1 )
+                                          (printexpr e2))]
+  ))
+
 (struct None ()
     #:transparent)
 (struct (i) Some ([v : i])
@@ -75,12 +79,11 @@
 (: lookup  ((Listof Number)  Number -> Number))
 (define (lookup ls l)
   (match ls
-    ['()  0]
     [(cons (cons (== l) n) ls) n]
     [(cons _ ls) (lookup ls l)]))
 
 
-(: updates ((Listof Any) Number ->
+(: updates ((Listof Any) Positive-Byte ->
                                  (Opt (Listof Any))))
 (define (updates ls l)
   (match ls
