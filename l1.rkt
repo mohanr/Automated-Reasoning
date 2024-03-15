@@ -1,8 +1,9 @@
 #lang typed/racket/base
 
-(provide Boolean printexpr updates None Some Seq Deref Assign)
+(provide printexpr updates Value None Some Seq Deref Assign)
 
-(require (for-syntax racket/base
+;;  Macro by Alexis King
+ (require (for-syntax racket/base
                      racket/sequence
                      racket/syntax
                      syntax/parse
@@ -30,6 +31,7 @@
          (struct (type-name.param ...) data-constructor.name
            ([data-constructor.field-id : data-constructor.param] ...)) ...
          (define-type type-name (U data-type ...)))]))
+;; End of Macro by Alexis King
 
 (define-type Loc String)
 (struct Plus())
@@ -43,6 +45,7 @@
     ['GTEQ #\=]))
 
 (define-datatype Expr
+  ( Value (U Boolean Number) )
   ( Op  Expr (U Plus GTEQ) Expr)
   ( If  Expr Expr Expr)
   ( Assign  Loc Expr)
@@ -56,6 +59,7 @@
 (: printexpr (Expr -> Void ))
 (define (printexpr expr)
   (match expr
+    [(Value n) (printf "~a" n)]
     [(Deref l)  (printf "( ~a ~a ~n)" "!"  l)]
     [( Op e1 operate e2  )
             (printf "( ~a ~a ~a~n)"  (printexpr e1)  (operator operate)
@@ -83,10 +87,15 @@
     [(cons _ ls) (lookup ls l)]))
 
 
-(: updates ((Listof Any) Positive-Byte ->
+(: updates ((Listof Any) Number ->
                                  (Opt (Listof Any))))
 (define (updates ls l)
   (match ls
     ['()   (None)]
     [(cons (cons (== l) n) ls) (Some (append ls (list (list l n))))]
     [(cons _ ls) (updates ls l)]))
+
+(define (reduce expr store )
+  (match expr
+    [  (list 'Op  (?   number? n1) `Plus  (? number? n2))   (Some (+ n1  n2))]
+  ))
