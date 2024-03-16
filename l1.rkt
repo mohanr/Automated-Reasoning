@@ -108,7 +108,50 @@
     [  (list 'Op  (? integer? n1) `GTEQ (? integer? n2))   (Some (list (BoolValue (>=  n1  n2)) store))]
     [  (list 'Op  (? integer? n1) `Skip (? boolean? n2))
              (match  (reduce  n2 store)
-               [ (Some (list (IntValue n2) store))  (Some (list ((Op n1 'Skip n2) store)))]
+               [ (Some (list (IntValue nn2) store))  (Some (list ((Op n1 'Skip nn2) store)))]
+               [ (None)  (None) ]
+               )
+             (match  (reduce  n1 store)
+               [ (Some (list (IntValue nn1) store))  (Some (list ((Op nn1 'Skip n2) store)))]
                [ (None)  (None) ]
                )]
- ))
+    [  (list 'If e1 e2 e3)
+             (match e1
+               [#t  (Some(list (e2 store  )))]
+               [#f  (Some(list ( e3 store  )))]
+               [_   (match (reduce e1 store )
+                      [(Some (list (IntValue ee1) store )) (Some (list ((If ee1 e2 e3) store  )))]
+                      [ (None)  (None) ]
+               )]
+    )]
+    [ (list 'Deref l)
+             (match (lookup  store l)
+               [ (Some n )  (Some (list (Integer n) store))]
+               [ (None)  (None) ]
+               )]
+    [  (list 'Assign l e )
+             (match e
+               [(IntValue n)
+                (match (updates store (list l n))
+                [ (Some stores)  (Some (list(  'Skip  stores)))]
+                [ (None)  (None) ]
+                [ _  (match (reduce e store )
+                        [(Some (list e1 stores))  (Some (list ('Assign l e1) stores))]
+                        [ (None)  (None) ]
+                     )
+                ]
+               )]
+               )]
+   [ (list 'While e1 e2)
+           (Some( list(  'If e1 ('Seq e2 ('While e1 e2)) 'Skip) store  ))]
+   [ 'Skip ( None )]
+   [ (list 'Seq e1 e2 ) store ;; Matching two patterns may be required
+            (match e1
+              ['Skip  (Some list( e2 store  ))]
+              [ _  ( match (reduce e1 store )
+                    [ ( Some (list ee1 stores )) ( Some (list ('Seq  ee1 e2)  stores  ))]
+                    [ (None)  (None) ]
+
+               )]
+               )]
+))
