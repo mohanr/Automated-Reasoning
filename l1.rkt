@@ -1,6 +1,6 @@
 #lang typed/racket/base
 
-(provide printexpr updates Value None Some Seq Deref Assign)
+(provide printexpr updates BoolValue IntValue None Some Seq Deref Assign)
 
 ;;  Macro by Alexis King
  (require (for-syntax racket/base
@@ -33,7 +33,11 @@
          (define-type type-name (U data-type ...)))]))
 ;; End of Macro by Alexis King
 
-(define-type Loc String)
+(define-datatype Store
+  ( Loc String)
+  Integer
+)
+
 (struct Plus())
 (struct GTEQ())
 (define-type (Operator c) (U Plus GTEQ))
@@ -42,14 +46,15 @@
 (define (operator c )
   (match c
     ['Plus #\+]
-    ['GTEQ #\=]))
+    ['GTEQ #\>=]))
 
 (define-datatype Expr
-  ( Value (U Boolean Number) )
+  ( BoolValue Boolean  )
+  ( IntValue  Number )
   ( Op  Expr (U Plus GTEQ) Expr)
   ( If  Expr Expr Expr)
-  ( Assign  Loc Expr)
-  ( Deref Loc )
+  ( Assign  String Expr)
+  ( Deref String)
   ( Seq Expr Expr)
   ( While Expr Expr)
     Skip
@@ -59,7 +64,7 @@
 (: printexpr (Expr -> Void ))
 (define (printexpr expr)
   (match expr
-    [(Value n) (printf "~a" n)]
+    [(IntValue n) (printf "~a" n)]
     [(Deref l)  (printf "( ~a ~a ~n)" "!"  l)]
     [( Op e1 operate e2  )
             (printf "( ~a ~a ~a~n)"  (printexpr e1)  (operator operate)
@@ -95,7 +100,15 @@
     [(cons (cons (== l) n) ls) (Some (append ls (list (list l n))))]
     [(cons _ ls) (updates ls l)]))
 
+(: reduce (Expr Store ->
+                                 (Opt (Listof Any))))
 (define (reduce expr store )
   (match expr
-    [  (list 'Op  (?   number? n1) `Plus  (? number? n2))   (Some (+ n1  n2))]
-  ))
+    [  (list 'Op  (? integer? n1) `Plus (? integer? n2))   (Some (list (IntValue (+ n1  n2)) store))]
+    [  (list 'Op  (? integer? n1) `GTEQ (? integer? n2))   (Some (list (BoolValue (>=  n1  n2)) store))]
+    [  (list 'Op  (? integer? n1) `Skip (? boolean? n2))
+             (match  (reduce  n2 store)
+               [ (Some (list (IntValue n2) store))  (Some (list ((Op n1 'Skip n2) store)))]
+               [ (None)  (None) ]
+               )]
+ ))
