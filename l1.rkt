@@ -67,6 +67,9 @@
     [(IntValue n) (string-append (format  "~a" n))]
     [(BoolValue b) (string-append (format  "~a" b))]
     [(Deref l)  (string-append (format "( ~a ~a )" "!"  l))]
+    [(If e1 e2 e3)
+     (string-append (format "if ~a  then ~a else ~a"  (printexpr e1 )  (printexpr e2)
+       (printexpr e3)))]
     [( Op e1 operate e2  )
             (string-append (format "( ~a ~c ~a)"  (printexpr e1)  (operator operate)
             (printexpr e2 )))]
