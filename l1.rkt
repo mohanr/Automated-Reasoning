@@ -61,22 +61,23 @@
 )
 
 
-(: printexpr (Expr -> Void ))
+(: printexpr (Expr -> String))
 (define (printexpr expr)
   (match expr
-    [(IntValue n) (printf "~a" n)]
-    [(Deref l)  (printf "( ~a ~a ~n)" "!"  l)]
+    [(IntValue n) (string-append (format  "~a" n))]
+    [(BoolValue b) (string-append (format  "~a" b))]
+    [(Deref l)  (string-append (format "( ~a ~a )" "!"  l))]
     [( Op e1 operate e2  )
-            (printf "( ~a ~a ~a~n)"  (printexpr e1)  (operator operate)
-            (printexpr e2 ))]
+            (string-append (format "( ~a ~c ~a)"  (printexpr e1)  (operator operate)
+            (printexpr e2 )))]
     [( If e1 e2 e3  )
-            (printf "( ~a ~a ~a~n)"  (printexpr e1)  (printexpr e2 )(printexpr e2 ))]
-    [ (Assign l e ) =  (printf "~a := ~a" l (printexpr e ))]
-    [ (Skip) ( printf "skip")]
-    [ (Seq e1 e2 )   (printf "~a ;  ~a" (printexpr e1 )
-                                      (printexpr e2))]
-    [ (While  e1 e2 ) (printf  "while ~a do ~a " (printexpr e1 )
-                                          (printexpr e2))]
+            (string-append (format "( ~a ~a ~a)"  (printexpr e1)  (printexpr e2 )(printexpr e2 )))]
+    [ (Assign l e ) =  (string-append (format "~a := ~a" l (printexpr e )))]
+    [ (Skip) ( string-append "skip")]
+    [ (Seq e1 e2 )   (string-append (format "~a ;  ~a" (printexpr e1 )
+                                      (printexpr e2)))]
+    [ (While  e1 e2 ) (string-append  (format "while ~a do ~a " (printexpr e1 )
+                                          (printexpr e2)))]
   ))
 
 (struct None ()
@@ -104,9 +105,9 @@
                                  (Opt (Listof Any))))
 (define (reduce expr store )
   (match expr
-    [  (list 'Op  (? integer? n1) `Plus (? integer? n2))   (Some (list (IntValue (+ n1  n2)) store))]
-    [  (list 'Op  (? integer? n1) `GTEQ (? integer? n2))   (Some (list (BoolValue (>=  n1  n2)) store))]
-    [  (list 'Op  (? integer? n1) `Skip (? boolean? n2))
+    [  (list 'Op  (? integer? n1) `Plus (? integer? n2)) store   (Some (list (IntValue (+ n1  n2)) store))]
+    [  (list 'Op  (? integer? n1) `GTEQ (? integer? n2)) store   (Some (list (BoolValue (>=  n1  n2)) store))]
+    [  (list 'Op  (? integer? n1) `Skip (? boolean? n2)) store
              (match  (reduce  n2 store)
                [ (Some (list (IntValue nn2) store))  (Some (list ((Op n1 'Skip nn2) store)))]
                [ (None)  (None) ]
@@ -115,7 +116,7 @@
                [ (Some (list (IntValue nn1) store))  (Some (list ((Op nn1 'Skip n2) store)))]
                [ (None)  (None) ]
                )]
-    [  (list 'If e1 e2 e3)
+    [  (list 'If e1 e2 e3) store
              (match e1
                [#t  (Some(list (e2 store  )))]
                [#f  (Some(list ( e3 store  )))]
@@ -124,12 +125,12 @@
                       [ (None)  (None) ]
                )]
     )]
-    [ (list 'Deref l)
+    [ (list 'Deref l) store
              (match (lookup  store l)
                [ (Some n )  (Some (list (Integer n) store))]
                [ (None)  (None) ]
                )]
-    [  (list 'Assign l e )
+    [  (list 'Assign l e ) store
              (match e
                [(IntValue n)
                 (match (updates store (list l n))
@@ -142,9 +143,9 @@
                 ]
                )]
                )]
-   [ (list 'While e1 e2)
+   [ (list 'While e1 e2) store
            (Some( list(  'If e1 ('Seq e2 ('While e1 e2)) 'Skip) store  ))]
-   [ 'Skip ( None )]
+   [ 'Skip store ( None )]
    [ (list 'Seq e1 e2 ) store ;; Matching two patterns may be required
             (match e1
               ['Skip  (Some list( e2 store  ))]
