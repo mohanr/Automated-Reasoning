@@ -1,5 +1,4 @@
 #lang typed/racket/base
-
 (provide printexpr updates BoolValue IntValue None Some Seq Deref Assign)
 
 ;;  Macro by Alexis King
@@ -151,7 +150,7 @@
    [ 'Skip store ( None )]
    [ (list 'Seq e1 e2 ) store ;; Matching two patterns may be required
             (match e1
-              ['Skip  (Some list( e2 store  ))]
+              ['Skip  (Some (list( e2 store  )))]
               [ _  ( match (reduce e1 store )
                     [ ( Some (list ee1 stores )) ( Some (list ('Seq  ee1 e2)  stores  ))]
                     [ (None)  (None) ]
@@ -159,3 +158,60 @@
                )]
                )]
 ))
+
+(: reduce1 (Expr Store -> String))
+(define (reduce1 e store)
+    (match (reduce e store)
+       [  (list  e store )
+        ( format ("~n --> ~a " (printconfig e store )))
+        (reduce1 e store )
+       ]
+       [ (None)  (format "~n -/->  "
+                 (match e
+                     ['Skip (string-append (format "(a value)~n"))]
+                     [ _   (string-append (format "(stuck - not a value)"))]))
+       ]
+       )
+)
+
+(: rawprintstore : ( Any -> String))
+(define (rawprintstore ls)
+       (match ls
+         ['() (string-append "")]
+         [(cons( cons l n) tail) (string-append (format "l  = ~a " n )
+                               (rawprintstore tail ))]
+         )
+)
+
+
+(: printconfig (Expr Store -> String))
+(define (printconfig e store)
+  (string-append (format "< ~a , ~a  >" (printexpr e)
+                     (printstore store )))
+)
+
+(: printreduce (Expr Store -> String))
+(define (printreduce e store)
+  (string-append (printconfig e store))
+  (reduce1 e store)
+)
+
+
+(define (sort pairs)
+  (cond
+    ['() '()]
+    [(cons pairs) (insert (car pairs)
+                        (sort (cdr  pairs)))]))
+
+(define (insert n pairs)
+  (cond
+    ['()  (cons n '())]
+    [else (cond
+            [(> n (car (car pairs))) (cons n pairs)]
+            [else (cons (car pairs)
+    (insert n (cdr pairs )))])]))
+
+(define (printstore pairs)
+    (let* ([pairs (sort pairs )])
+       rawprintstore pairs )
+)
