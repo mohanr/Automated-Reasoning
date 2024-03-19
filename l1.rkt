@@ -1,5 +1,5 @@
 #lang typed/racket/base
-(provide printexpr updates BoolValue IntValue None Some Seq Deref Assign)
+(provide LocValue Loc printreduce printexpr updates BoolValue IntValue None Some Seq Deref Assign)
 
 ;;  Macro by Alexis King
  (require (for-syntax racket/base
@@ -34,7 +34,7 @@
 
 (define-datatype Store
   ( Loc String)
-  Integer
+  ( LocValue Number )
 )
 
 (struct Plus())
@@ -103,7 +103,7 @@
     [(cons (cons (== l) n) ls) (Some (append ls (list (list l n))))]
     [(cons _ ls) (updates ls l)]))
 
-(: reduce (Expr Store ->
+(: reduce (Expr (Listof Store) ->
                                  (Opt (Listof Any))))
 (define (reduce expr store )
   (match expr
@@ -129,7 +129,7 @@
     )]
     [ (list 'Deref l) store
              (match (lookup  store l)
-               [ (Some n )  (Some (list (Integer n) store))]
+               [ (Some n )  (Some (list n store))]
                [ (None)  (None) ]
                )]
     [  (list 'Assign l e ) store
@@ -148,7 +148,7 @@
    [ (list 'While e1 e2) store
            (Some( list(  'If e1 ('Seq e2 ('While e1 e2)) 'Skip) store  ))]
    [ 'Skip store ( None )]
-   [ (list 'Seq e1 e2 ) store ;; Matching two patterns may be required
+   [ (list 'Seq e1 e2)  (list 'Store );; Matching two patterns may be required
             (match e1
               ['Skip  (Some (list( e2 store  )))]
               [ _  ( match (reduce e1 store )
@@ -159,7 +159,7 @@
                )]
 ))
 
-(: reduce1 (Expr Store -> String))
+(: reduce1 (Expr (Listof Store) -> String))
 (define (reduce1 e store)
     (match (reduce e store)
        [  (list  e store )
@@ -184,13 +184,13 @@
 )
 
 
-(: printconfig (Expr Store -> String))
+(: printconfig (Expr (Listof Store) -> String))
 (define (printconfig e store)
   (string-append (format "< ~a , ~a  >" (printexpr e)
                      (printstore store )))
 )
 
-(: printreduce (Expr Store -> String))
+(: printreduce (Expr (Listof Store) -> String))
 (define (printreduce e store)
   (string-append (printconfig e store))
   (reduce1 e store)
