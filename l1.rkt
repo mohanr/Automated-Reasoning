@@ -1,5 +1,5 @@
 #lang typed/racket/base
-(provide LocValue Loc printreduce printexpr updates BoolValue IntValue None Some Seq Deref Assign)
+(provide Opt lookup sort LocValue Loc printreduce printexpr updates BoolValue IntValue None Some Seq Deref Assign)
 ;;  Macro by Alexis King
  (require (for-syntax racket/base
                      racket/sequence
@@ -62,7 +62,7 @@
 (: printexpr (Expr -> String))
 (define (printexpr expr)
   (match expr
-    [(IntValue n) (string-append (format  "~a" n))]
+    [(IntValue n) (printf( string-append (format  "~a" n))) ""]
     [(BoolValue b) (string-append (format  "~a" b))]
     [(Deref l)  (string-append (format "( ~a ~a )" "!"  l))]
     [(If e1 e2 e3)
@@ -73,12 +73,12 @@
             (printexpr e2 )))]
     [( If e1 e2 e3  )
             (string-append (format "( ~a ~a ~a)"  (printexpr e1)  (printexpr e2 )(printexpr e2 )))]
-    [ (Assign l e ) =  (string-append (format "Assign ~a := ~a" l (printexpr e )))]
+    [ (Assign l e ) =  (printf (format "Assign ~a := ~a" l (printexpr e ))) ""]
     [ Skip  ( string-append "skip")]
-    [ (Seq e1 e2 )   (string-append (format " ~a ;  ~a" (printexpr e1 )
-                                      (printexpr e2)))]
-    [ (While  e1 e2 ) (string-append  (format "while ~a do ~a " (printexpr e1 )
-                                          (printexpr e2)))]
+    [ (Seq e1 e2 )   (printf   " ~a ;  ~a" (printexpr e1 )
+                                      (printexpr e2)) ""]
+    [ (While  e1 e2 ) (printf   "while ~a do ~a " (printexpr e1 )
+                                          (printexpr e2)) ""]
   ))
 
 (struct None ()
@@ -87,26 +87,34 @@
     #:transparent)
 (define-type (Opt a) (U None (Some a)))
 
-(: lookup  ((Listof Store) String ->
-                                 (Opt (Listof Store))))
+(: lookup  ((Listof  (Pairof Loc LocValue)) String  ->
+            (Pairof (Opt Number) (Listof  (Pairof Loc LocValue)))))
 (define (lookup ls l)
   (match ls
-    ['()   (None)]
-    [(cons (cons (== l) n) ls) n]
-    [(cons _ ls) (lookup ls l)]))
+    ['()   (cons (None) ls)]
+    [(cons (cons (Loc s) (LocValue n)) rest)
+     (if (string=? s  l)
+      (cons (Some n) ls)
+     (lookup rest l))]
+    ))
 
 
-(: updates ((Listof Store ) Number ->
-                                 (Opt (Listof Store))))
+(: updates ((Listof (Pairof Loc LocValue)) (Pairof Loc LocValue) ->
+                         (Opt (Listof  (Pairof Loc LocValue)))))
 (define (updates ls l)
   (match ls
     ['()   (None)]
-    [(cons (cons (== l) n) ls) (Some (append ls (list (list l n))))]
-    [(cons _ ls) (updates ls l)]))
+    [(cons (cons (Loc s) (LocValue n)) rest)
+     (if (string=? s (match (car l) [(cons (Loc x) _) x]))
+         (Some (cons l (cdr ls)))
+         (match (updates rest l)
+           [(Some updated) (Some (cons (cons (Loc s) (LocValue n)) updated))]
+           [(None) (None)]))]))
 
 
-(: reduce ((Pairof (Opt Expr) (Listof Store )) ->
-                      (Pairof (Opt Expr ) (Listof Store))))
+
+(: reduce ((Pairof (Opt Expr)  (Listof (Pairof Loc LocValue))) ->
+                      (Pairof (Opt Expr ) (Listof  (Pairof Loc LocValue)))))
 (define (reduce expr)
   (match expr
     [  (cons (Some  (Op  (? integer? n1) Plus (? integer? n2)))
@@ -136,12 +144,12 @@
     [ (cons (Some (Deref l)) store)
              (match (lookup  store l)
                [ (cons (Some n ) store )  (cons (Some  (IntValue n)) store)]
-               [ (None)  (cons (None) store )]
+               [ (cons (None) store)  (cons (None) store )]
      )]
     [ (cons (Some (Assign l e )) store)
              (match e
                [(IntValue n)
-                (match (updates store n)
+                (match (updates store (cons (Loc l) (LocValue n)))
                 [ (Some store ) (cons  (Some (Skip))  store)]
                 [ (None)  (cons (None) store ) ]
                 [ _  (match (reduce (cons (Some e) store))
@@ -169,12 +177,13 @@
 
 ))
 
-(: reduce1 (Expr (Listof Store) -> String))
+(: reduce1 (Expr (Listof (Pairof Loc LocValue)) -> String))
 (define (reduce1 e store)
     (match (reduce (cons (Some e) store))
        [  (cons (Some e) store)
-          ( format "~n --> ~a " (printconfig e store ))
-          (reduce1 e store )
+          ( printf (format "~n --> ~a " (printconfig e store )))
+          ( printf ( string-append (reduce1 e store )))
+          ""
        ]
        [ (cons (None)  store)
          (string-append "~n -/->  "
@@ -185,7 +194,7 @@
        )
 )
 
-(: rawprintstore : ( (Listof Store) -> String))
+(: rawprintstore : (  (Listof (Pairof Loc LocValue))  -> String))
 (define (rawprintstore ls)
        (printf "Print Store")
        (match ls
@@ -196,13 +205,13 @@
 )
 
 
-(: printconfig (Expr (Listof Store) -> String))
+(: printconfig (Expr (Listof (Pairof Loc LocValue)) -> String))
 (define (printconfig e store)
   (string-append (format "< ~a , ~a  >" (printexpr e)
                      (printstore store )))
 )
 
-(: printreduce (Expr (Listof Store) -> Void))
+(: printreduce (Expr (Listof (Pairof Loc LocValue)) -> Void))
 (define (printreduce e store)
   (printf (printconfig e store))
   (printf (reduce1 e store))
@@ -212,7 +221,7 @@
 
 (define (sort pairs)
   (cond
-    ['() '()]
+    ['() pairs]
     [(cons pairs) (insert (car pairs)
                         (sort (cdr  pairs)))]))
 
@@ -230,4 +239,4 @@
 )
 
 
- ( printreduce (Seq( Assign "l1" (IntValue 3)) (Deref "l1"))  (list ( Loc "l1" )(LocValue 1)))
+ ( printreduce (Seq( Assign "l1" (IntValue 3)) (Deref "l1")) (list( cons( Loc "l1" )(LocValue 1))))
