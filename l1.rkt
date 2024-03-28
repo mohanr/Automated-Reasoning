@@ -188,7 +188,7 @@
        [ (cons (None)  store)
          (string-append "~n -/->  "
                  (match e
-                     ['Skip (string-append (format "(a value)~n"))]
+                     [Skip (string-append (format "(a value)~n"))]
                      [ _   (string-append (format "(stuck - not a value)"))]))
        ]
        )
@@ -196,11 +196,12 @@
 
 (: rawprintstore : (  (Listof (Pairof Loc LocValue))  -> String))
 (define (rawprintstore ls)
-       (printf "Print Store")
        (match ls
          ['() (string-append "")]
-         [(cons( cons l n) tail) (string-append (format " l  = ~a " n )
-                               (rawprintstore tail ))]
+         [(cons( cons l n) tail)
+           (match  l [(cons (Loc x) (LocValue y))
+                      (string-append (format " ~a  = ~a " x y ))])
+                               (rawprintstore tail )]
          )
 )
 
