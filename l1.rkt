@@ -121,7 +121,7 @@
              store)
        (cons (Some  (IntValue (+ n1  n2))) store)]
     [  (cons (Some ( Op  (? integer? n1) GTEQ (? integer? n2 ))) store)
-       (cons (Some  (BoolValue (>=  n1  'n2))) store)]
+       (cons (Some  (BoolValue (>=  n1  n2))) store)]
     [  (cons (Some (Op  (? integer? n1) Skip (? boolean? n2))) store)
              (match  (reduce (cons (Some n2) store))
                [ (cons (Some  (IntValue nn2)) store)  (cons (Some ((Op n1 Skip nn2))) store)]
@@ -238,6 +238,83 @@
     (let* ([pairs (sort pairs )])
        rawprintstore pairs )
 )
+(define-datatype type_L1
+        int
+        unit
+        bool
+  )
+
+(define-datatype type_loc
+         intref
+)
+
+(define-type typeEnv
+  (U String type_loc)
+ )
 
 
- ( printreduce (Seq( Assign "l1" (IntValue 3)) (Deref "l1")) (list( cons( Loc "l1" )(LocValue 1))))
+(define-type Location
+  String
+)
+(: lookups  ((Listof  (Pairof String type_loc)) String  ->
+            (Pairof (Opt type_loc) (Listof  (Pairof String type_loc)))))
+(define (lookups ls l)
+  (match ls
+    ['()   (cons (None) ls)]
+    [(cons (cons s n ) rest)
+     (if (string=? s  l)
+      (cons (Some n) ls)
+     (lookups rest l))]
+    ))
+
+
+(: infertype ((Listof (Pairof Location type_loc)) Expr -> (Opt type_L1)))
+(define (infertype gamma expr )
+  (match expr
+    [  (IntValue n ) (Some (int)) ]
+
+    [  (BoolValue b) (Some (bool))]
+    [  (Op e1 opr e2)
+        (match (list (infertype gamma e1) opr (infertype gamma e2 ))
+           [ (cons (Some (int)) (cons Plus (cons (Some (int)) '()))) (Some (int))]
+           [ (cons (Some (int)) (cons GTEQ (cons (Some (int)) '()))) (Some (bool))]
+           [ _ ( None ) ])
+        ]
+    [  (If e1 e2 e3)
+        (match (list( infertype gamma e1) (infertype gamma e2)
+                    (infertype gamma e3))
+           [(cons (Some (bool)) (cons (Some t2) (cons (Some t3) '())))
+           (if (eq? t2 t3)
+               (Some t2)
+               ( None ))
+           ]
+           [ _ ( None ) ])
+        ]
+     [ (Deref l)
+        (match (lookups gamma l)
+           [ (Some intref) (Some (int))]
+           [ _ ( None ) ])
+        ]
+     [ (Assign l e)
+        (match (list (lookups gamma l) (infertype gamma e))
+           [(cons (Some (intref)) (Some (int)))  (Some (unit))]
+           [ _ (None) ])
+        ]
+     [ (Skip) (Some (unit)) ]
+     [  (Seq e1 e2)
+        (match (list (infertype gamma e1) (infertype gamma e2 ))
+           [(cons (Some (unit)) (Some t2))  (Some t2)]
+           [ _ ( None ) ])
+        ]
+     [ (While e1 e2)
+        (match (list (infertype gamma e1) (infertype gamma e2))
+           [(cons (Some (bool)) (Some (unit)) ) (Some (unit))]
+           [ _ ( None ) ])
+        ]
+
+ ))
+
+( infertype (list (cons "l1" (intref)))
+             (Seq( Assign "l1" (IntValue 3)) (Deref "l1")))
+( printreduce (Seq( Assign "l1" (IntValue 3)) (Deref "l1"))
+              (list( cons( Loc "l1" )(LocValue 1))))
