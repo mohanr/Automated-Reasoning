@@ -257,13 +257,13 @@
   String
 )
 (: lookups  ((Listof  (Pairof String type_loc)) String  ->
-            (Pairof (Opt type_loc) (Listof  (Pairof String type_loc)))))
+            (Opt type_loc)))
 (define (lookups ls l)
   (match ls
-    ['()   (cons (None) ls)]
+    ['()   ( None )]
     [(cons (cons s n ) rest)
      (if (string=? s  l)
-      (cons (Some n) ls)
+      (Some n)
      (lookups rest l))]
     ))
 
@@ -297,8 +297,8 @@
         ]
      [ (Assign l e)
         (match (list (lookups gamma l) (infertype gamma e))
-           [(cons (Some (intref)) (Some (int)))  (Some (unit))]
-           [ _ (None) ])
+           [(list (Some (intref)) (Some (int)))  (Some (unit))]
+           [ _ ( None ) ])
         ]
      [ (Skip) (Some (unit)) ]
      [  (Seq e1 e2)
